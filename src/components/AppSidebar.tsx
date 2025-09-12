@@ -7,7 +7,10 @@ import {
   CreditCard,
   TrendingUp,
   Settings,
+  User,
+  History,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
   SidebarContent,
@@ -20,12 +23,19 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-const navigationItems = [
+const adminNavigationItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Branches', url: '/branches', icon: Building2 },
   { title: 'Employees', url: '/employees', icon: Users },
   { title: 'Salary', url: '/salary', icon: CreditCard },
   { title: 'Advances', url: '/advances', icon: TrendingUp },
+];
+
+const employeeNavigationItems = [
+  { title: 'My Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'My Profile', url: '/profile', icon: User },
+  { title: 'Salary History', url: '/salary-history', icon: History },
+  { title: 'My Advances', url: '/my-advances', icon: TrendingUp },
 ];
 
 const settingsItems = [
@@ -34,9 +44,14 @@ const settingsItems = [
 
 export const AppSidebar: React.FC = () => {
   const { state } = useSidebar();
+  const { state: authState } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
   const isCollapsed = state === 'collapsed';
+  
+  const navigationItems = authState.user?.role === 'admin' 
+    ? adminNavigationItems 
+    : employeeNavigationItems;
 
   const isActive = (path: string) => {
     if (path === '/') return currentPath === '/';
@@ -48,7 +63,7 @@ export const AppSidebar: React.FC = () => {
       <SidebarContent className="bg-sidebar border-r border-sidebar-border">
         <SidebarGroup className="py-4">
           <SidebarGroupLabel className={isCollapsed ? 'sr-only' : 'px-4 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider'}>
-            Main Menu
+            {authState.user?.role === 'admin' ? 'Admin Menu' : 'Employee Menu'}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1 px-2">
