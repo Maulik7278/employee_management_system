@@ -42,6 +42,20 @@ const EmployeeDashboard: React.FC = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Safety check: ensure attendance data exists
+    if (!state.attendance || !Array.isArray(state.attendance)) {
+      return {
+        records: [],
+        presentDays: 0,
+        absentDays: 0,
+        totalDays: 0,
+        avgDuration: 0,
+        totalDuration: 0,
+        todayStatus: 'absent' as const,
+        todayDuration: 0
+      };
+    }
+    
     let attendanceRecords;
     
     if (attendanceFilter === 'today') {

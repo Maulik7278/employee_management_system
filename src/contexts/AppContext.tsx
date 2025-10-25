@@ -243,6 +243,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
+        // Ensure attendance field exists
+        if (!parsedData.attendance) {
+          parsedData.attendance = mockAttendance;
+        }
         dispatch({ type: 'LOAD_FROM_STORAGE', payload: parsedData });
       } catch (error) {
         console.error('Failed to load data from localStorage:', error);

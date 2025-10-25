@@ -109,6 +109,11 @@ export default function Dashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
+    // Safety check: ensure attendance data exists
+    if (!state.attendance || !Array.isArray(state.attendance)) {
+      return [];
+    }
+    
     return state.employees.map(employee => {
       const branch = state.branches.find(b => b.id === employee.branchId);
       let attendanceRecords;
