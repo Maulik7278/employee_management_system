@@ -243,10 +243,50 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
-        // Ensure attendance field exists
-        if (!parsedData.attendance) {
+        
+        // Convert date strings back to Date objects
+        if (parsedData.branches) {
+          parsedData.branches = parsedData.branches.map((branch: any) => ({
+            ...branch,
+            createdAt: new Date(branch.createdAt),
+            updatedAt: new Date(branch.updatedAt),
+          }));
+        }
+        
+        if (parsedData.employees) {
+          parsedData.employees = parsedData.employees.map((employee: any) => ({
+            ...employee,
+            createdAt: new Date(employee.createdAt),
+            updatedAt: new Date(employee.updatedAt),
+          }));
+        }
+        
+        if (parsedData.advances) {
+          parsedData.advances = parsedData.advances.map((advance: any) => ({
+            ...advance,
+            date: new Date(advance.date),
+          }));
+        }
+        
+        if (parsedData.salaryPayments) {
+          parsedData.salaryPayments = parsedData.salaryPayments.map((payment: any) => ({
+            ...payment,
+            paymentDate: new Date(payment.paymentDate),
+          }));
+        }
+        
+        if (parsedData.attendance) {
+          parsedData.attendance = parsedData.attendance.map((att: any) => ({
+            ...att,
+            date: new Date(att.date),
+            checkIn: att.checkIn ? new Date(att.checkIn) : undefined,
+            checkOut: att.checkOut ? new Date(att.checkOut) : undefined,
+          }));
+        } else {
+          // Ensure attendance field exists
           parsedData.attendance = mockAttendance;
         }
+        
         dispatch({ type: 'LOAD_FROM_STORAGE', payload: parsedData });
       } catch (error) {
         console.error('Failed to load data from localStorage:', error);
