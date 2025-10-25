@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { 
   User, 
@@ -12,12 +13,16 @@ import {
   CreditCard, 
   TrendingUp, 
   Calendar,
-  IndianRupee 
+  IndianRupee,
+  Clock,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 
 const EmployeeDashboard: React.FC = () => {
   const { state: authState } = useAuth();
-  const { state, getEmployeeAdvances } = useApp();
+  const { state, getEmployeeAdvances, getEmployeeAttendance } = useApp();
+  const [attendanceFilter, setAttendanceFilter] = useState<'today' | 'last30'>('today');
   
   if (!authState.user?.employeeData) {
     return <div>Employee data not found</div>;
@@ -31,6 +36,50 @@ const EmployeeDashboard: React.FC = () => {
   // Mock salary calculation for current month
   const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
   const netSalary = employee.baseSalary - totalAdvances;
+
+  // Get attendance data
+  const getMyAttendanceData = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let attendanceRecords;
+    
+    if (attendanceFilter === 'today') {
+      attendanceRecords = state.attendance.filter(
+        att => att.employeeId === employee.id && 
+        att.date.getTime() >= today.getTime()
+      );
+    } else {
+      const cutoff = new Date(today);
+      cutoff.setDate(cutoff.getDate() - 30);
+      attendanceRecords = state.attendance.filter(
+        att => att.employeeId === employee.id && 
+        att.date >= cutoff
+      );
+    }
+    
+    const presentDays = attendanceRecords.filter(att => att.status === 'present').length;
+    const absentDays = attendanceRecords.filter(att => att.status === 'absent').length;
+    const totalDuration = attendanceRecords
+      .filter(att => att.workingDuration)
+      .reduce((sum, att) => sum + (att.workingDuration || 0), 0);
+    
+    const avgDuration = presentDays > 0 ? Math.floor(totalDuration / presentDays) : 0;
+    const todayAttendance = attendanceRecords.find(att => att.date.getTime() >= today.getTime());
+    
+    return {
+      records: attendanceRecords.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10),
+      presentDays,
+      absentDays,
+      totalDays: attendanceRecords.length,
+      avgDuration,
+      totalDuration,
+      todayStatus: todayAttendance?.status || 'absent',
+      todayDuration: todayAttendance?.workingDuration || 0
+    };
+  };
+
+  const attendanceData = getMyAttendanceData();
 
   return (
     <div className="space-y-6">
@@ -170,6 +219,107 @@ const EmployeeDashboard: React.FC = () => {
             <p>No advances taken yet</p>
           </div>
         )}
+      </Card>
+
+      {/* My Attendance Card */}
+      <Card className="p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div className="flex items-center space-x-3">
+            <Clock className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-semibold">My Attendance</h2>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={attendanceFilter === 'today' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setAttendanceFilter('today')}
+            >
+              Today
+            </Button>
+            <Button
+              variant={attendanceFilter === 'last30' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setAttendanceFilter('last30')}
+            >
+              Last 30 Days
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground mb-1">Status</p>
+            <Badge 
+              variant={attendanceData.todayStatus === 'present' ? 'default' : 'destructive'}
+              className="flex items-center justify-center gap-1"
+            >
+              {attendanceData.todayStatus === 'present' ? (
+                <CheckCircle2 className="h-3 w-3" />
+              ) : (
+                <XCircle className="h-3 w-3" />
+              )}
+              {attendanceData.todayStatus}
+            </Badge>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground mb-1">Present Days</p>
+            <p className="text-xl font-bold text-primary">{attendanceData.presentDays}</p>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground mb-1">Absent Days</p>
+            <p className="text-xl font-bold text-destructive">{attendanceData.absentDays}</p>
+          </div>
+          <div className="text-center p-3 bg-muted/50 rounded-lg">
+            <p className="text-sm text-muted-foreground mb-1">Avg Duration</p>
+            <p className="text-xl font-bold text-foreground">
+              {Math.floor(attendanceData.avgDuration / 60)}h {attendanceData.avgDuration % 60}m
+            </p>
+          </div>
+        </div>
+
+        <Separator className="my-4" />
+
+        {/* Recent Attendance Records */}
+        <div className="space-y-3">
+          <h3 className="font-medium">Recent Records</h3>
+          {attendanceData.records.length > 0 ? (
+            <div className="space-y-2">
+              {attendanceData.records.map((record) => (
+                <div key={record.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {record.date.toLocaleDateString('en-IN', { 
+                        weekday: 'short', 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                    {record.workingDuration && (
+                      <p className="text-xs text-muted-foreground">
+                        Duration: {Math.floor(record.workingDuration / 60)}h {record.workingDuration % 60}m
+                      </p>
+                    )}
+                  </div>
+                  <Badge 
+                    variant={record.status === 'present' ? 'default' : 'destructive'}
+                    className="flex items-center gap-1"
+                  >
+                    {record.status === 'present' ? (
+                      <CheckCircle2 className="h-3 w-3" />
+                    ) : (
+                      <XCircle className="h-3 w-3" />
+                    )}
+                    {record.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">No attendance records found</p>
+          )}
+        </div>
       </Card>
     </div>
   );

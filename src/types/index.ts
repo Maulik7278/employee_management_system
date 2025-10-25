@@ -44,6 +44,17 @@ export interface SalaryPayment {
   status: 'paid' | 'pending' | 'partial';
 }
 
+export interface Attendance {
+  id: string;
+  employeeId: string;
+  branchId: string;
+  date: Date;
+  status: 'present' | 'absent';
+  checkIn?: Date;
+  checkOut?: Date;
+  workingDuration?: number; // in minutes
+}
+
 export interface DashboardStats {
   totalBranches: number;
   totalEmployees: number;

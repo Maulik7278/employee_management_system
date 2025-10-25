@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { Branch, Employee, Advance, SalaryPayment, DashboardStats } from '@/types';
+import { Branch, Employee, Advance, SalaryPayment, DashboardStats, Attendance } from '@/types';
 
 // Mock data for initial state
 const mockBranches: Branch[] = [
@@ -77,11 +77,48 @@ const mockAdvances: Advance[] = [
   },
 ];
 
+// Generate mock attendance for last 30 days
+const generateMockAttendance = (): Attendance[] => {
+  const attendance: Attendance[] = [];
+  const today = new Date();
+  
+  mockEmployees.forEach((employee) => {
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      
+      // Random attendance (90% present)
+      const isPresent = Math.random() > 0.1;
+      const checkIn = isPresent ? new Date(date.setHours(9, 0, 0, 0)) : undefined;
+      const checkOut = isPresent ? new Date(date.setHours(18, Math.floor(Math.random() * 60), 0, 0)) : undefined;
+      const duration = isPresent && checkIn && checkOut 
+        ? Math.floor((checkOut.getTime() - checkIn.getTime()) / (1000 * 60))
+        : undefined;
+      
+      attendance.push({
+        id: `${employee.id}-${i}`,
+        employeeId: employee.id,
+        branchId: employee.branchId,
+        date: new Date(date),
+        status: isPresent ? 'present' : 'absent',
+        checkIn,
+        checkOut,
+        workingDuration: duration,
+      });
+    }
+  });
+  
+  return attendance;
+};
+
+const mockAttendance = generateMockAttendance();
+
 interface AppState {
   branches: Branch[];
   employees: Employee[];
   advances: Advance[];
   salaryPayments: SalaryPayment[];
+  attendance: Attendance[];
   dashboardStats: DashboardStats;
 }
 
@@ -96,6 +133,7 @@ type AppAction =
   | { type: 'UPDATE_ADVANCE'; payload: Advance }
   | { type: 'DELETE_ADVANCE'; payload: string }
   | { type: 'ADD_SALARY_PAYMENT'; payload: SalaryPayment }
+  | { type: 'ADD_ATTENDANCE'; payload: Attendance }
   | { type: 'UPDATE_DASHBOARD_STATS'; payload: DashboardStats }
   | { type: 'LOAD_FROM_STORAGE'; payload: AppState };
 
@@ -104,6 +142,7 @@ const initialState: AppState = {
   employees: mockEmployees,
   advances: mockAdvances,
   salaryPayments: [],
+  attendance: mockAttendance,
   dashboardStats: {
     totalBranches: 0,
     totalEmployees: 0,
@@ -163,6 +202,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       };
     case 'ADD_SALARY_PAYMENT':
       return { ...state, salaryPayments: [...state.salaryPayments, action.payload] };
+    case 'ADD_ATTENDANCE':
+      return { ...state, attendance: [...state.attendance, action.payload] };
     case 'UPDATE_DASHBOARD_STATS':
       return { ...state, dashboardStats: action.payload };
     default:
@@ -175,6 +216,7 @@ interface AppContextType {
   dispatch: React.Dispatch<AppAction>;
   getBranchEmployees: (branchId: string) => Employee[];
   getEmployeeAdvances: (employeeId: string) => Advance[];
+  getEmployeeAttendance: (employeeId: string, days?: number) => Attendance[];
   calculateDashboardStats: () => DashboardStats;
 }
 
@@ -222,6 +264,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     return state.advances.filter(advance => advance.employeeId === employeeId);
   };
 
+  const getEmployeeAttendance = (employeeId: string, days: number = 30): Attendance[] => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    return state.attendance
+      .filter(att => att.employeeId === employeeId && att.date >= cutoffDate)
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+  };
+
   const calculateDashboardStats = (): DashboardStats => {
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
@@ -246,6 +297,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch,
     getBranchEmployees,
     getEmployeeAdvances,
+    getEmployeeAttendance,
     calculateDashboardStats,
   };
 

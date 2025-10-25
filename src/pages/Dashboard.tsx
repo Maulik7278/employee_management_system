@@ -1,14 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Building2, 
   Users, 
   CreditCard, 
   TrendingUp,
   ArrowUpRight,
-  DollarSign
+  DollarSign,
+  Clock,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -57,8 +61,9 @@ const StatsCard: React.FC<StatsCardProps> = ({
 );
 
 export default function Dashboard() {
-  const { state, calculateDashboardStats, dispatch } = useApp();
+  const { state, calculateDashboardStats, dispatch, getEmployeeAttendance } = useApp();
   const stats = calculateDashboardStats();
+  const [attendanceFilter, setAttendanceFilter] = useState<'today' | 'last30'>('today');
 
   useEffect(() => {
     dispatch({ type: 'UPDATE_DASHBOARD_STATS', payload: stats });
@@ -98,6 +103,51 @@ export default function Dashboard() {
       linkTo: '/advances'
     }
   ];
+
+  // Calculate attendance data
+  const getAttendanceData = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return state.employees.map(employee => {
+      const branch = state.branches.find(b => b.id === employee.branchId);
+      let attendanceRecords;
+      
+      if (attendanceFilter === 'today') {
+        attendanceRecords = state.attendance.filter(
+          att => att.employeeId === employee.id && 
+          att.date.getTime() >= today.getTime()
+        );
+      } else {
+        const cutoff = new Date(today);
+        cutoff.setDate(cutoff.getDate() - 30);
+        attendanceRecords = state.attendance.filter(
+          att => att.employeeId === employee.id && 
+          att.date >= cutoff
+        );
+      }
+      
+      const presentDays = attendanceRecords.filter(att => att.status === 'present').length;
+      const totalDuration = attendanceRecords
+        .filter(att => att.workingDuration)
+        .reduce((sum, att) => sum + (att.workingDuration || 0), 0);
+      
+      const avgDuration = presentDays > 0 ? Math.floor(totalDuration / presentDays) : 0;
+      const todayAttendance = attendanceRecords.find(att => att.date.getTime() >= today.getTime());
+      
+      return {
+        employee,
+        branch: branch?.name || 'Unknown',
+        status: todayAttendance?.status || 'absent',
+        presentDays,
+        totalDays: attendanceRecords.length,
+        avgDuration,
+        todayDuration: todayAttendance?.workingDuration || 0
+      };
+    });
+  };
+
+  const attendanceData = getAttendanceData();
 
   return (
     <div className="space-y-6">
@@ -214,6 +264,92 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Attendance Card */}
+      <Card className="bg-gradient-card shadow-medium">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Employee Attendance
+            </CardTitle>
+            <div className="flex gap-2">
+              <Button
+                variant={attendanceFilter === 'today' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAttendanceFilter('today')}
+              >
+                Today
+              </Button>
+              <Button
+                variant={attendanceFilter === 'last30' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAttendanceFilter('last30')}
+              >
+                Last 30 Days
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {attendanceData.map(({ employee, branch, status, presentDays, totalDays, avgDuration, todayDuration }) => (
+              <div 
+                key={employee.id} 
+                className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  {employee.image && (
+                    <img 
+                      src={employee.image} 
+                      alt={employee.name}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  )}
+                  <div>
+                    <p className="font-medium text-foreground">{employee.name}</p>
+                    <p className="text-xs text-muted-foreground">{branch}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  {attendanceFilter === 'today' ? (
+                    <>
+                      <Badge 
+                        variant={status === 'present' ? 'default' : 'destructive'}
+                        className="flex items-center gap-1"
+                      >
+                        {status === 'present' ? (
+                          <CheckCircle2 className="h-3 w-3" />
+                        ) : (
+                          <XCircle className="h-3 w-3" />
+                        )}
+                        {status}
+                      </Badge>
+                      {status === 'present' && todayDuration > 0 && (
+                        <div className="text-sm text-muted-foreground">
+                          {Math.floor(todayDuration / 60)}h {todayDuration % 60}m
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-sm text-center">
+                        <p className="font-medium text-foreground">{presentDays}/{totalDays}</p>
+                        <p className="text-xs text-muted-foreground">Present</p>
+                      </div>
+                      <div className="text-sm text-center">
+                        <p className="font-medium text-foreground">{Math.floor(avgDuration / 60)}h {avgDuration % 60}m</p>
+                        <p className="text-xs text-muted-foreground">Avg Time</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
